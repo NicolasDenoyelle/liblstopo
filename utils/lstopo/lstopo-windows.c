@@ -394,7 +394,7 @@ struct draw_methods windows_draw_methods = {
 };
 
 void
-output_windows (struct lstopo_output *loutput)
+output_windows (struct lstopo_output *loutput, const char *dummy __hwloc_attribute_unused)
 {
   memset(&the_output, 0, sizeof(the_output));
   the_output.loutput = loutput;
