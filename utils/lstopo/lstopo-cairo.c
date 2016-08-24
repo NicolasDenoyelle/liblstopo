@@ -247,8 +247,13 @@ x11_init(struct lstopo_output *loutput)
   printf("\n\n");
 }
 
+static int x11_iloop(struct lstopo_output *loutput, int block);
+static void x11_end(struct lstopo_output *loutput);
+
 static struct draw_methods x11_draw_methods = {
   x11_init,
+  x11_iloop,
+  x11_end,
   topo_cairo_declare_color,
   topo_cairo_box,
   topo_cairo_line,
@@ -316,12 +321,11 @@ move_x11(struct lstopo_x11_output *disp)
 void
 output_x11(struct lstopo_output *loutput)
 {
-  struct lstopo_x11_output _disp, *disp = &_disp;
+  struct lstopo_x11_output *disp;
   struct lstopo_cairo_output *coutput;
-  int finish = 0;
-  int state = 0;
-  int x = 0, y = 0; /* shut warning down */
-  int lastx, lasty;
+
+  disp = malloc(sizeof(*disp));
+  assert(disp);
 
   coutput = &disp->coutput;
   memset(coutput, 0, sizeof(*coutput));
@@ -330,13 +334,26 @@ output_x11(struct lstopo_output *loutput)
   loutput->methods = &x11_draw_methods;
 
   output_draw_start(loutput);
+  topo_cairo_paint(coutput);
+}
+
+int
+x11_iloop(struct lstopo_output *loutput, int block)
+{
+  struct lstopo_x11_output *disp = loutput->backend_data;
+  struct lstopo_cairo_output *coutput = &disp->coutput;
+  int finish = 0;
+  int state = 0;
+  int x = 0, y = 0; /* shut warning down */
+  int lastx, lasty;
+
   lastx = disp->x;
   lasty = disp->y;
 
-  topo_cairo_paint(coutput);
-
   while (!finish) {
     XEvent e;
+    if (!block && !XPending(disp->dpy))
+      return 0;
     if (!XEventsQueued(disp->dpy, QueuedAfterFlush)) {
       /* No pending event, flush moving windows before waiting for next event */
       if (disp->x != lastx || disp->y != lasty) {
@@ -468,6 +485,14 @@ output_x11(struct lstopo_output *loutput)
       }
     }
   }
+
+  return -1;
+}
+
+static void
+x11_end(struct lstopo_output *loutput)
+{
+  struct lstopo_x11_output *disp = loutput->backend_data;
   x11_destroy(disp);
   XDestroyWindow(disp->dpy, disp->top);
   XFreeCursor(disp->dpy, disp->hand);
@@ -503,6 +528,8 @@ png_init(struct lstopo_output *loutput)
 
 static struct draw_methods png_draw_methods = {
   png_init,
+  NULL,
+  NULL,
   topo_cairo_declare_color,
   topo_cairo_box,
   topo_cairo_line,
@@ -567,6 +594,8 @@ pdf_init(struct lstopo_output *loutput)
 
 static struct draw_methods pdf_draw_methods = {
   pdf_init,
+  NULL,
+  NULL,
   topo_cairo_declare_color,
   topo_cairo_box,
   topo_cairo_line,
@@ -631,6 +660,8 @@ ps_init(struct lstopo_output *loutput)
 
 static struct draw_methods ps_draw_methods = {
   ps_init,
+  NULL,
+  NULL,
   topo_cairo_declare_color,
   topo_cairo_box,
   topo_cairo_line,
@@ -695,6 +726,8 @@ svg_init(struct lstopo_output *loutput)
 
 static struct draw_methods svg_draw_methods = {
   svg_init,
+  NULL,
+  NULL,
   topo_cairo_declare_color,
   topo_cairo_box,
   topo_cairo_line,
