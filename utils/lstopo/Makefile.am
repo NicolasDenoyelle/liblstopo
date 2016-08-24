@@ -56,6 +56,14 @@ lstopo_win_CFLAGS = $(lstopo_CFLAGS) -mwindows
 lstopo_win_LDADD = $(lstopo_LDADD)
 endif
 
+if HWLOC_HAVE_CAIRO
+bin_PROGRAMS += example
+example_SOURCES = example.c lstopo.h lstopo-core.c lstopo-color.c lstopo-draw.c lstopo-cairo.c
+example_CPPFLAGS = $(lstopo_CPPFLAGS)
+example_CFLAGS = $(lstopo_CFLAGS)
+example_LDADD = $(lstopo_LDADD)
+endif
+
 man1_pages = lstopo-no-graphics.1
 EXTRA_DIST += $(man1_pages:.1=.1in)
 nodist_man_MANS = $(man1_pages)
