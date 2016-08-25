@@ -37,26 +37,6 @@
 
 static unsigned int top = 0;
 
-FILE *open_output(const char *filename, int overwrite)
-{
-  const char *extn;
-  struct stat st;
-
-  if (!filename || !strcmp(filename, "-"))
-    return stdout;
-
-  extn = strrchr(filename, '.');
-  if (filename[0] == '-' && extn == filename + 1)
-    return stdout;
-
-  if (!stat(filename, &st) && !overwrite) {
-    errno = EEXIST;
-    return NULL;
-  }
-
-  return fopen(filename, "w");
-}
-
 static hwloc_obj_t insert_task(hwloc_topology_t topology, hwloc_cpuset_t cpuset, const char * name)
 {
   hwloc_obj_t group, obj;
@@ -215,81 +195,6 @@ static void add_process_objects(hwloc_topology_t topology)
 #endif /* HWLOC_LINUX_SYS */
   closedir(dir);
 #endif /* HAVE_DIRENT_H */
-}
-
-static void
-lstopo_add_collapse_attributes(hwloc_topology_t topology)
-{
-  hwloc_obj_t obj, collapser = NULL;
-  unsigned collapsed = 0;
-  /* collapse identical PCI devs */
-  for(obj = hwloc_get_next_pcidev(topology, NULL); obj; obj = hwloc_get_next_pcidev(topology, obj)) {
-    if (collapser) {
-      if (!obj->io_arity && !obj->misc_arity
-	  && obj->parent == collapser->parent
-	  && obj->attr->pcidev.vendor_id == collapser->attr->pcidev.vendor_id
-	  && obj->attr->pcidev.device_id == collapser->attr->pcidev.device_id
-	  && obj->attr->pcidev.subvendor_id == collapser->attr->pcidev.subvendor_id
-	  && obj->attr->pcidev.subdevice_id == collapser->attr->pcidev.subdevice_id) {
-	/* collapse another one */
-	((struct lstopo_obj_userdata *)obj->userdata)->pci_collapsed = -1;
-	collapsed++;
-	continue;
-      } else if (collapsed > 1) {
-	/* end this collapsing */
-	((struct lstopo_obj_userdata *)collapser->userdata)->pci_collapsed = collapsed;
-	collapser = NULL;
-	collapsed = 0;
-      }
-    }
-    if (!obj->io_arity && !obj->misc_arity) {
-      /* start a new collapsing */
-      collapser = obj;
-      collapsed = 1;
-    }
-  }
-  if (collapsed > 1) {
-    /* end this collapsing */
-    ((struct lstopo_obj_userdata *)collapser->userdata)->pci_collapsed = collapsed;
-  }
-}
-
-static void
-lstopo_populate_userdata(hwloc_obj_t parent)
-{
-  hwloc_obj_t child;
-  struct lstopo_obj_userdata *save = malloc(sizeof(*save));
-
-  save->common.buffer = NULL; /* so that it is ignored on XML export */
-  save->common.next = parent->userdata;
-  save->pci_collapsed = 0;
-  parent->userdata = save;
-
-  for(child = parent->first_child; child; child = child->next_sibling)
-    lstopo_populate_userdata(child);
-  for(child = parent->io_first_child; child; child = child->next_sibling)
-    lstopo_populate_userdata(child);
-  for(child = parent->misc_first_child; child; child = child->next_sibling)
-    lstopo_populate_userdata(child);
-}
-
-static void
-lstopo_destroy_userdata(hwloc_obj_t parent)
-{
-  hwloc_obj_t child;
-  struct lstopo_obj_userdata *save = parent->userdata;
-
-  if (save) {
-    parent->userdata = save->common.next;
-    free(save);
-  }
-
-  for(child = parent->first_child; child; child = child->next_sibling)
-    lstopo_destroy_userdata(child);
-  for(child = parent->io_first_child; child; child = child->next_sibling)
-    lstopo_destroy_userdata(child);
-  for(child = parent->misc_first_child; child; child = child->next_sibling)
-    lstopo_destroy_userdata(child);
 }
 
 void usage(const char *name, FILE *where)
@@ -456,39 +361,7 @@ main (int argc, char *argv[])
 
   hwloc_utils_check_api_version(callname);
 
-  loutput.methods = NULL;
-
-  loutput.overwrite = 0;
-
-  loutput.logical = -1;
-  loutput.verbose_mode = LSTOPO_VERBOSE_MODE_DEFAULT;
-  loutput.ignore_pus = 0;
-  loutput.collapse = 1;
-  loutput.pid_number = -1;
-  loutput.pid = 0;
-
-  loutput.export_synthetic_flags = 0;
-
-  loutput.legend = 1;
-  loutput.legend_append = NULL;
-  loutput.legend_append_nr = 0;
-
-  loutput.show_distances_only = 0;
-  loutput.show_only = HWLOC_OBJ_TYPE_NONE;
-  loutput.show_cpuset = 0;
-  loutput.show_taskset = 0;
-
-  loutput.backend_data = NULL;
-  loutput.methods = NULL;
-
-  loutput.fontsize = 10;
-  loutput.gridsize = 10;
-  for(i=0; i<HWLOC_OBJ_TYPE_MAX; i++)
-    loutput.force_orient[i] = LSTOPO_ORIENT_NONE;
-  loutput.force_orient[HWLOC_OBJ_PU] = LSTOPO_ORIENT_HORIZ;
-  for(i=HWLOC_OBJ_L1CACHE; i<=HWLOC_OBJ_L3ICACHE; i++)
-    loutput.force_orient[i] = LSTOPO_ORIENT_HORIZ;
-  loutput.force_orient[HWLOC_OBJ_NUMANODE] = LSTOPO_ORIENT_HORIZ;
+  lstopo_init(&loutput);
 
   /* enable verbose backends */
   putenv("HWLOC_XML_VERBOSE=1");
@@ -875,10 +748,7 @@ main (int argc, char *argv[])
   loutput.topology = topology;
   loutput.file = NULL;
 
-  lstopo_populate_userdata(hwloc_get_root_obj(topology));
-
-  if (output_format != LSTOPO_OUTPUT_XML && loutput.collapse)
-    lstopo_add_collapse_attributes(topology);
+  lstopo_prepare(&loutput);
 
   output_func(&loutput, filename);
 
@@ -888,7 +758,8 @@ main (int argc, char *argv[])
   if (loutput.methods && loutput.methods->end)
     loutput.methods->end(&loutput);
 
-  lstopo_destroy_userdata(hwloc_get_root_obj(topology));
+  lstopo_destroy(&loutput);
+
   hwloc_utils_userdata_free_recursive(hwloc_get_root_obj(topology));
   hwloc_topology_destroy (topology);
 
@@ -901,7 +772,6 @@ main (int argc, char *argv[])
  out_usagefailure:
   usage (callname, stderr);
  out_with_topology:
-  lstopo_destroy_userdata(hwloc_get_root_obj(topology));
   hwloc_topology_destroy(topology);
  out:
   return EXIT_FAILURE;

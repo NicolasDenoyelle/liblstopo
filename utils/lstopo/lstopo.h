@@ -29,6 +29,8 @@ FILE *open_output(const char *filename, int overwrite) __hwloc_attribute_malloc;
 
 struct draw_methods;
 
+#define LSTOPO_VERBOSE_MODE_DEFAULT 1
+
 /* if embedded in backend-specific output structure, must be at the beginning */
 struct lstopo_output {
   hwloc_topology_t topology;
@@ -114,6 +116,13 @@ struct lstopo_obj_userdata {
 
 typedef void output_method (struct lstopo_output *output, const char *filename);
 extern output_method output_console, output_synthetic, output_ascii, output_fig, output_png, output_pdf, output_ps, output_svg, output_x11, output_windows, output_xml;
+
+/* to be called at the beginning of the program */
+void lstopo_init(struct lstopo_output *loutput);
+/* to be called once the loutput and topology is set up */
+void lstopo_prepare(struct lstopo_output *loutput);
+/* to be called at the end */
+void lstopo_destroy(struct lstopo_output *loutput);
 
 struct draw_methods {
   void (*init) (struct lstopo_output *loutput);
