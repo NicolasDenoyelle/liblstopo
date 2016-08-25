@@ -44,6 +44,8 @@ lstopo_init(struct lstopo_output *loutput)
   for(i=HWLOC_OBJ_L1CACHE; i<=HWLOC_OBJ_L3ICACHE; i++)
     loutput->force_orient[i] = LSTOPO_ORIENT_HORIZ;
   loutput->force_orient[HWLOC_OBJ_NUMANODE] = LSTOPO_ORIENT_HORIZ;
+
+  loutput->drawing_callback = NULL;
 }
 
 FILE *open_output(const char *filename, int overwrite)

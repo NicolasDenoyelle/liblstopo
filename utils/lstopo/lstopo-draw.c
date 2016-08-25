@@ -996,17 +996,19 @@ cache_draw(struct lstopo_output *loutput, hwloc_obj_t level, unsigned depth, uns
     lud->height = totheight;
 
   } else { /* LSTOPO_DRAWING_DRAW */
-    struct draw_methods *methods = loutput->methods;
-    struct style style;
-
     /* restore our size that was computed during prepare */
     totwidth = lud->width;
     totheight = lud->height;
 
-    lstopo_set_object_color(loutput, level, &style);
-    methods->box(loutput, style.bg.r, style.bg.g, style.bg.b, depth, x, totwidth, y, fontsize + gridsize + FONTGRIDSIZE /* totheight also contains children below this box */);
-
-    draw_text(loutput, level, &style.t, depth-1, x + gridsize, y + gridsize);
+    if (!loutput->drawing_callback
+	|| loutput->drawing_callback(loutput, level, depth,
+				     x, totwidth, y, fontsize + gridsize + FONTGRIDSIZE) < 0) {
+      struct draw_methods *methods = loutput->methods;
+      struct style style;
+      lstopo_set_object_color(loutput, level, &style);
+      methods->box(loutput, style.bg.r, style.bg.g, style.bg.b, depth, x, totwidth, y, fontsize + gridsize + FONTGRIDSIZE /* totheight also contains children below this box */);
+      draw_text(loutput, level, &style.t, depth-1, x + gridsize, y + gridsize);
+    }
 
     /* Draw sublevels for real */
     draw_children(loutput, level, depth-1, x, y);
@@ -1032,19 +1034,22 @@ node_draw(struct lstopo_output *loutput, hwloc_obj_t level, unsigned depth, unsi
     lud->height = totheight;
 
   } else { /* LSTOPO_DRAWING_DRAW */
-    struct draw_methods *methods = loutput->methods;
-    struct style style;
-
     /* restore our size that was computed during prepare */
     totwidth = lud->width;
     totheight = lud->height;
 
-    lstopo_set_object_color(loutput, level, &style);
-    /* Draw the epoxy box */
-    methods->box(loutput, style.bg.r, style.bg.g, style.bg.b, depth, x, totwidth, y, totheight);
-    /* Draw the memory box */
-    methods->box(loutput, style.bg2.r, style.bg2.g, style.bg2.b, depth-1, x + gridsize, totwidth - 2*gridsize, y + gridsize, fontsize + gridsize + FONTGRIDSIZE);
-    draw_text(loutput, level, &style.t2, depth-2, x + 2*gridsize, y + 2*gridsize);
+    if (!loutput->drawing_callback
+	|| loutput->drawing_callback(loutput, level, depth,
+				     x, totwidth, y, totheight) < 0) {
+      struct draw_methods *methods = loutput->methods;
+      struct style style;
+      lstopo_set_object_color(loutput, level, &style);
+      /* Draw the epoxy box */
+      methods->box(loutput, style.bg.r, style.bg.g, style.bg.b, depth, x, totwidth, y, totheight);
+      /* Draw the memory box */
+      methods->box(loutput, style.bg2.r, style.bg2.g, style.bg2.b, depth-1, x + gridsize, totwidth - 2*gridsize, y + gridsize, fontsize + gridsize + FONTGRIDSIZE);
+      draw_text(loutput, level, &style.t2, depth-2, x + 2*gridsize, y + 2*gridsize);
+    }
 
     /* Draw sublevels for real */
     draw_children(loutput, level, depth-1, x, y);
@@ -1070,17 +1075,19 @@ normal_draw(struct lstopo_output *loutput, hwloc_obj_t level, unsigned depth, un
     lud->height = totheight;
 
   } else { /* LSTOPO_DRAWING_DRAW */
-    struct draw_methods *methods = loutput->methods;
-    struct style style;
-
     /* restore our size that was computed during prepare */
     totwidth = lud->width;
     totheight = lud->height;
 
-    lstopo_set_object_color(loutput, level, &style);
-    methods->box(loutput, style.bg.r, style.bg.g, style.bg.b, depth, x, totwidth, y, totheight);
-    draw_text(loutput, level, &style.t, depth-1, x + gridsize, y + gridsize);
-
+    if (!loutput->drawing_callback
+	|| loutput->drawing_callback(loutput, level, depth,
+				     x, totwidth, y, totheight) < 0) {
+      struct draw_methods *methods = loutput->methods;
+      struct style style;
+      lstopo_set_object_color(loutput, level, &style);
+      methods->box(loutput, style.bg.r, style.bg.g, style.bg.b, depth, x, totwidth, y, totheight);
+      draw_text(loutput, level, &style.t, depth-1, x + gridsize, y + gridsize);
+    }
     /* Draw sublevels for real */
     draw_children(loutput, level, depth-1, x, y);
   }
