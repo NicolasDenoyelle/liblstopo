@@ -6,7 +6,7 @@
 
 #include "lstopo.h"
 
-void
+HWLOC_DECLSPEC void
 lstopo_init(struct lstopo_output *loutput)
 {
   unsigned i;
@@ -143,7 +143,7 @@ lstopo_add_collapse_attributes(hwloc_topology_t topology)
   }
 }
 
-void
+HWLOC_DECLSPEC void
 lstopo_prepare(struct lstopo_output *loutput)
 {
   hwloc_obj_t root = hwloc_get_root_obj(loutput->topology);
@@ -152,7 +152,7 @@ lstopo_prepare(struct lstopo_output *loutput)
     lstopo_add_collapse_attributes(loutput->topology);
 }
 
-void
+HWLOC_DECLSPEC void
 lstopo_destroy(struct lstopo_output *loutput)
 {
   hwloc_obj_t root = hwloc_get_root_obj(loutput->topology);

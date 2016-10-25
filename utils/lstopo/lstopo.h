@@ -11,7 +11,7 @@
 
 #include <private/autogen/config.h>
 #include <hwloc.h>
-#include <misc.h>
+#include <hwloc/misc.h>
 
 enum lstopo_drawing_e {
   LSTOPO_DRAWING_PREPARE,
@@ -120,13 +120,6 @@ struct lstopo_obj_userdata {
 typedef void output_method (struct lstopo_output *output, const char *filename);
 extern output_method output_console, output_synthetic, output_ascii, output_fig, output_png, output_pdf, output_ps, output_svg, output_x11, output_windows, output_xml;
 
-/* to be called at the beginning of the program */
-void lstopo_init(struct lstopo_output *loutput);
-/* to be called once the loutput and topology is set up */
-void lstopo_prepare(struct lstopo_output *loutput);
-/* to be called at the end */
-void lstopo_destroy(struct lstopo_output *loutput);
-
 struct draw_methods {
   void (*init) (struct lstopo_output *loutput);
   int (*iloop) (struct lstopo_output *loutput, int block); /* handles graphical events, redraws, and returns 0 when done and !block, -1 when exit requested */
@@ -207,5 +200,15 @@ static __hwloc_inline int lstopo_busid_snprintf(char *text, size_t textlen, hwlo
 		  lastobj->attr->pcidev.dev,
 		  lastobj->attr->pcidev.func);
 }
+
+/**************************************************************************/
+/*                              user interface                            */
+/* to be called at the beginning of the program */
+HWLOC_DECLSPEC void lstopo_init(struct lstopo_output *loutput);
+/* to be called once the loutput and topology is set up */
+HWLOC_DECLSPEC void lstopo_prepare(struct lstopo_output *loutput);
+/* to be called at the end */
+HWLOC_DECLSPEC void lstopo_destroy(struct lstopo_output *loutput);
+/**************************************************************************/
 
 #endif /* UTILS_LSTOPO_H */
