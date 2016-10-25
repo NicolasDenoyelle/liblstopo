@@ -99,6 +99,11 @@ AC_DEFUN([HWLOC_DEFINE_ARGS],[
                   AS_HELP_STRING([--disable-libudev],
                                  [Disable the Linux libudev]))
 
+    # liblstopo
+    AC_ARG_ENABLE([liblstopo],
+                  AS_HELP_STRING([--enable-liblstopo],
+                                 [Build the linux liblstopo (cairo) !experimental!]))
+				 
     # Plugins
     AC_ARG_ENABLE([plugins],
                   AS_HELP_STRING([--enable-plugins=name,...],
@@ -316,6 +321,18 @@ EOF
 
     _HWLOC_CHECK_DIFF_U
     _HWLOC_CHECK_DIFF_W
+
+
+# Configure liblstopo
+
+hwloc_have_liblstopo=no
+if test "x$enable_liblstopo" = "xyes"; then
+   if test "x$hwloc_cairo_happy" = "xyes"; then
+     hwloc_have_liblstopo=yes
+   else
+     AC_MSG_WARN([--enable-liblstopo requested, but Cairo/X11 support was not found])
+   fi   
+fi
 
     # Only generate this if we're building the utilities
     AC_CONFIG_FILES(

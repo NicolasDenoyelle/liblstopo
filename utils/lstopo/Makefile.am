@@ -8,7 +8,7 @@
 
 AM_CFLAGS = $(HWLOC_CFLAGS)
 # Add -I of utils/hwloc for misc.h
-AM_CPPFLAGS = $(HWLOC_CPPFLAGS) -I$(top_srcdir)/utils/hwloc
+AM_CPPFLAGS = $(HWLOC_CPPFLAGS) -I$(top_srcdir)/utils
 AM_LDFLAGS = $(HWLOC_LDFLAGS)
 
 LDADD = $(HWLOC_top_builddir)/hwloc/libhwloc.la
@@ -39,7 +39,7 @@ lstopo_LDADD = $(lstopo_no_graphics_LDADD)
 if HWLOC_HAVE_CAIRO
 bin_PROGRAMS += lstopo
 lstopo_SOURCES += lstopo-cairo.c
-lstopo_CPPFLAGS += -DLSTOPO_HAVE_GRAPHICS $(HWLOC_X11_CPPFLAGS)
+lstopo_CPPFLAGS += -DLSTOPO_HAVE_GRAPHICS $(HWLOC_X11_CPPFLAGS) -I$(top_srcdir)/include/private/autogen/
 lstopo_CFLAGS = $(lstopo_no_graphics_CFLAGS) $(HWLOC_CAIRO_CFLAGS)
 lstopo_LDADD += $(HWLOC_CAIRO_LIBS) $(HWLOC_X11_LIBS)
 endif
@@ -56,12 +56,17 @@ lstopo_win_CFLAGS = $(lstopo_CFLAGS) -mwindows
 lstopo_win_LDADD = $(lstopo_LDADD)
 endif
 
-if HWLOC_HAVE_CAIRO
-bin_PROGRAMS += example
-example_SOURCES = example.c lstopo.h lstopo-core.c lstopo-color.c lstopo-draw.c lstopo-cairo.c
-example_CPPFLAGS = $(lstopo_CPPFLAGS)
-example_CFLAGS = $(lstopo_CFLAGS)
-example_LDADD = $(lstopo_LDADD)
+if HWLOC_HAVE_LIBLSTOPO
+lib_LTLIBRARIES = liblstopo.la
+liblstopo_la_SOURCES = lstopo-core.c lstopo-color.c lstopo-draw.c lstopo-cairo.c
+liblstopo_la_LIBADD = $(LDADD) $(lstopo_LDADD)
+
+include_lstopodir=$(includedir)/hwloc
+include_lstopo_HEADERS=lstopo.h $(top_srcdir)/utils/hwloc/misc.h
+include_lstopo_privatedir=$(includedir)/private
+include_lstopo_autogendir=$(includedir)/private/autogen
+nodist_include_lstopo_private_HEADERS=$(top_srcdir)/include/private/misc.h
+nodist_include_lstopo_autogen_HEADERS=$(top_srcdir)/include/private/autogen/config.h
 endif
 
 man1_pages = lstopo-no-graphics.1

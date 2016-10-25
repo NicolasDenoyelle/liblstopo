@@ -249,17 +249,18 @@ cat <<EOF
 -----------------------------------------------------------------------------
 Hwloc optional build support status (more details can be found above):
 
-Probe / display I/O devices:$hwloc_probeio_list
-Graphical output (Cairo):    $hwloc_cairo_happy
-XML input / output:          $hwloc_xml_status
-Netloc functionality:        $netloc_status
+Probe / display I/O devices: $hwloc_probeio_list
+Graphical output (Cairo):     $hwloc_cairo_happy
+liblstopo (experimental):     $hwloc_have_liblstopo
+XML input / output:           $hwloc_xml_status
+Netloc functionality:         $netloc_status
 EOF
 
 # Plugin support
 hwloc_plugin_summary=$hwloc_have_plugins
 test "x$hwloc_plugin_components" != "x" && hwloc_plugin_summary="yes ("`echo $hwloc_plugin_components`")" # echo removes the starting space
 cat <<EOF
-Plugin support:              $hwloc_plugin_summary
+Plugin support:               $hwloc_plugin_summary
 EOF
 
 # End of generic support
