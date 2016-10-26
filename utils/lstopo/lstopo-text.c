@@ -17,7 +17,7 @@
 #include <errno.h>
 
 #include "lstopo.h"
-#include "misc.h"
+#include <hwloc/misc.h>
 
 #define indent(output, i) \
   fprintf (output, "%*s", (int) i, "");
