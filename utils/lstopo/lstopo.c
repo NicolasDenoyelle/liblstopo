@@ -33,7 +33,7 @@
 #endif
 
 #include "lstopo.h"
-#include "misc.h"
+#include <hwloc/misc.h>
 
 static unsigned int top = 0;
 
