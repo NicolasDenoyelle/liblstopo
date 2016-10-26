@@ -8,18 +8,18 @@
 
 #include <private/autogen/config.h>
 
-#include <cairo.h>
+#include <cairo/cairo.h>
 
 #if CAIRO_HAS_PDF_SURFACE
-#include <cairo-pdf.h>
+#include <cairo/cairo-pdf.h>
 #endif /* CAIRO_HAS_PDF_SURFACE */
 
 #if CAIRO_HAS_PS_SURFACE
-#include <cairo-ps.h>
+#include <cairo/cairo-ps.h>
 #endif /* CAIRO_HAS_PS_SURFACE */
 
 #if CAIRO_HAS_SVG_SURFACE
-#include <cairo-svg.h>
+#include <cairo/cairo-svg.h>
 #endif /* CAIRO_HAS_SVG_SURFACE */
 
 #ifndef HWLOC_HAVE_X11_KEYSYM
@@ -29,7 +29,7 @@
 #endif
 
 #if CAIRO_HAS_XLIB_SURFACE
-#include <cairo-xlib.h>
+#include <cairo/cairo-xlib.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
@@ -352,8 +352,10 @@ x11_iloop(struct lstopo_output *loutput, int block)
 
   while (!finish) {
     XEvent e;
-    if (!block && !XPending(disp->dpy))
+    if (!block && !XPending(disp->dpy)){
+      topo_cairo_paint(coutput);
       return 0;
+    }
     if (!XEventsQueued(disp->dpy, QueuedAfterFlush)) {
       /* No pending event, flush moving windows before waiting for next event */
       if (disp->x != lastx || disp->y != lasty) {
@@ -485,7 +487,6 @@ x11_iloop(struct lstopo_output *loutput, int block)
       }
     }
   }
-
   return -1;
 }
 
