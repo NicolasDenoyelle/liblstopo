@@ -62,6 +62,11 @@ Enforce the input in the given format, among \fBxml\fR, \fBfsroot\fR,
 \fBcpuid\fR and \fBsynthetic\fR.
 .TP
 \fB\-\-export\-synthetic\-flags\fR <flags>
+Enforce flags when exporting to the XML format.
+These flags are passed to \fIhwloc_topology_export_xml()\fR.
+A value of 1 reverts to the format of hwloc v1.x.
+.TP
+\fB\-\-export\-synthetic\-flags\fR <flags>
 Enforce flags when exporting to the synthetic format.
 These flags are passed to \fIhwloc_topology_export_synthetic()\fR.
 A value of 2 reverts to the format of hwloc v1.9.
@@ -137,6 +142,11 @@ This is equivalent to \fB-\-filter <type>:none\fR for all instruction cache type
 .TP
 \fB\-\-whole\-system\fR
 Do not consider administration limitations.
+.TP
+\fB\-\-flags\fR <flags>
+Enforce topology flags.
+The default is \fB0\fR.
+These flags are passed to \fIhwloc_topology_set_flags()\fR.
 .TP
 \fB\-\-merge\fR
 Do not show levels that do not have a hierarchical impact.

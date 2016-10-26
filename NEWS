@@ -43,6 +43,13 @@ Version 2.0.0
   + Remove HWLOC_TOPOLOGY_FLAG_IO_DEVICES, _IO_BRIDGES and _WHOLE_IO in favor of
     hwloc_topology_set_io_types_filter() with HWLOC_TYPE_FILTER_KEEP_ALL or
     HWLOC_TYPE_FILTER_KEEP_IMPORTANT.
+  + hwloc_topology_restrict() doesn't remove objects that contain memory
+    by default anymore.
+    - The list of existing restrict flags was modified.
+  + XML export functions take an additional flags argument,
+    for instance for exporting XMLs that are compatible with hwloc 1.x.
+  + The distance API has been completely reworked. It is now described
+    in hwloc/distances.h.
   + Add the experimental netloc subproject. It is enabled by default when
     supported and can be disabled with --disable-netloc.
     See the documentation for details.
@@ -113,6 +120,23 @@ Version 2.0.0
   + HWLOC_COMPONENTS takes precedence over other environment variables
     for selecting components.
   + Remove the dependency on libnuma on Linux.
+
+
+Version 1.11.4
+--------------
+* Add MemoryMode and ClusterMode attributes in the Machine object on KNL.
+  Add doc/examples/get-knl-modes.c for an example of retrieving them.
+  Thanks to Grzegorz Andrejczuk.
+* Fix Linux build with -m32 with respect to libudev.
+  Thanks to Paul Hargrove for reporting the issue.
+* Fix build with Visual Studio 2015, thanks to Eloi Gaudry for reporting
+  the issue and providing the patch.
+* Don't forget to display OS device children in the graphical lstopo.
+* Fix a memory leak on Solaris, thanks to Bryon Gloden for the patch.
+* Properly handle realloc() failures, thanks to Bryon Gloden for reporting
+  the issue.
+* Fix lstopo crash in ascii/fig/windows outputs when some objects have a
+  lstopoStyle info attribute.
 
 
 Version 1.11.3

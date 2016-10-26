@@ -23,7 +23,7 @@ SUBDIRS += netloc
 endif
 
 if HWLOC_BUILD_STANDALONE
-SUBDIRS += tests utils contrib/systemd contrib/misc
+SUBDIRS += utils tests contrib/systemd contrib/misc
 # We need doc/ if HWLOC_BUILD_DOXYGEN, or during make install if HWLOC_INSTALL_DOXYGEN.
 # There's no INSTALL_SUBDIRS, so always enter doc/ and check HWLOC_BUILD/INSTALL_DOXYGEN there
 SUBDIRS += doc
@@ -40,7 +40,11 @@ pkgconfig_DATA = hwloc.pc
 if BUILD_NETLOC
 # JMS Need to compare hwloc.pc and netloc.pc -- I think netloc.pc is
 # missing some things.
-pkgconfig_DATA += netloc.pc
+# pkgconfig_DATA += netloc.pc Disabled until the netloc API is public
+EXTRA_DIST += netloc.pc
+if BUILD_NETLOCSCOTCH
+pkgconfig_DATA += netlocscotch.pc
+endif BUILD_NETLOCSCOTCH
 endif BUILD_NETLOC
 endif HWLOC_BUILD_STANDALONE
 

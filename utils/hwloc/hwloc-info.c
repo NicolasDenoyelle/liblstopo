@@ -72,6 +72,7 @@ hwloc_info_show_obj(hwloc_obj_t obj, const char *type, const char *prefix, int v
   printf("%s logical index = %u\n", prefix, obj->logical_index);
   if (obj->os_index != (unsigned) -1)
     printf("%s os index = %u\n", prefix, obj->os_index);
+  printf("%s gp index = %llu\n", prefix, (unsigned long long) obj->gp_index);
   if (obj->name)
     printf("%s name = %s\n", prefix, obj->name);
   if (obj->depth != (unsigned) -1)
@@ -503,12 +504,12 @@ main (int argc, char *argv[])
     DO(membind, get_thisthread_membind);
     DO(membind, set_area_membind);
     DO(membind, get_area_membind);
+    DO(membind, alloc_membind);
     DO(membind, firsttouch_membind);
     DO(membind, bind_membind);
     DO(membind, interleave_membind);
     DO(membind, nexttouch_membind);
     DO(membind, migrate_membind);
-    DO(membind, firsttouch_membind);
     DO(membind, get_area_memlocation);
 
   } else if (mode == HWLOC_INFO_MODE_OBJECTS) {

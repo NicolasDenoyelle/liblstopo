@@ -347,7 +347,7 @@ browse(struct hwloc_topology *topology, lgrp_cookie_t cookie, lgrp_id_t lgrp, hw
     cpuids = malloc(sizeof(processorid_t) * n);
     assert(cpuids != NULL);
 
-    obj = hwloc_alloc_setup_object(HWLOC_OBJ_NUMANODE, lgrp);
+    obj = hwloc_alloc_setup_object(topology, HWLOC_OBJ_NUMANODE, lgrp);
     obj->nodeset = hwloc_bitmap_alloc();
     hwloc_bitmap_set(obj->nodeset, lgrp);
     obj->cpuset = hwloc_bitmap_alloc();
@@ -368,7 +368,7 @@ browse(struct hwloc_topology *topology, lgrp_cookie_t cookie, lgrp_id_t lgrp, hw
     obj->memory.page_types = malloc(2*sizeof(*obj->memory.page_types));
     memset(obj->memory.page_types, 0, 2*sizeof(*obj->memory.page_types));
     obj->memory.page_types[0].size = hwloc_getpagesize();
-#ifdef HAVE__SC_LARGE_PAGESIZE
+#if HAVE_DECL__SC_LARGE_PAGESIZE
     obj->memory.page_types[1].size = sysconf(_SC_LARGE_PAGESIZE);
 #endif
     hwloc_insert_object_by_cpuset(topology, obj);
@@ -415,19 +415,19 @@ hwloc_look_lgrp(struct hwloc_topology *topology)
   if (nlgrps > 0) {
     hwloc_obj_t *glob_lgrps = calloc(nlgrps, sizeof(hwloc_obj_t));
     browse(topology, cookie, root, glob_lgrps, &curlgrp);
-#ifdef HAVE_LGRP_LATENCY_COOKIE
+#if HAVE_DECL_LGRP_LATENCY_COOKIE
     if (nlgrps > 1) {
-      float *distances = calloc(curlgrp*curlgrp, sizeof(float));
-      unsigned *indexes = calloc(curlgrp,sizeof(unsigned));
+      uint64_t *distances = calloc(curlgrp*curlgrp, sizeof(uint64_t));
       unsigned i, j;
       for (i = 0; i < curlgrp; i++) {
-	indexes[i] = glob_lgrps[i]->os_index;
 	for (j = 0; j < curlgrp; j++)
-          distances[i*curlgrp+j] = (float) lgrp_latency_cookie(cookie, glob_lgrps[i]->os_index, glob_lgrps[j]->os_index, LGRP_LAT_CPU_TO_MEM);
+          distances[i*curlgrp+j] = (uint64_t) lgrp_latency_cookie(cookie, glob_lgrps[i]->os_index, glob_lgrps[j]->os_index, LGRP_LAT_CPU_TO_MEM);
       }
-      hwloc_distances_set(topology, HWLOC_OBJ_NUMANODE, curlgrp, indexes, glob_lgrps, distances, 0 /* OS cannot force */);
+      hwloc_internal_distances_add(topology, curlgrp, glob_lgrps, distances,
+				   HWLOC_DISTANCES_KIND_FROM_OS|HWLOC_DISTANCES_KIND_MEANS_LATENCY,
+				   HWLOC_DISTANCES_FLAG_GROUP);
     } else
-#endif /* HAVE_LGRP_LATENCY_COOKIE */
+#endif /* HAVE_DECL_LGRP_LATENCY_COOKIE */
       free(glob_lgrps);
   }
   lgrp_fini(cookie);
@@ -516,8 +516,10 @@ hwloc_look_kstat(struct hwloc_topology *topology)
         {
           hwloc_debug("cpu%u's state is %s\n", cpuid, stat->value.c);
           if (strcmp(stat->value.c, "on-line")) {
-            /* not online */
-	    hwloc_bitmap_clr(topology->levels[0][0]->allowed_cpuset, cpuid);
+            /* Not online.
+	     * It was marked as existing in complete_cpuset above, ignore everything else.
+	     * We wouldn't get the all topology information about parents anyway.
+	     */
 	    continue;
 	  }
         }
@@ -661,7 +663,7 @@ hwloc_look_kstat(struct hwloc_topology *topology)
     unsigned j,k;
     hwloc_debug("%d Packages\n", Lpkg_num);
     for (j = 0; j < Lpkg_num; j++) {
-      obj = hwloc_alloc_setup_object(HWLOC_OBJ_PACKAGE, Lpkg[j].Ppkg);
+      obj = hwloc_alloc_setup_object(topology, HWLOC_OBJ_PACKAGE, Lpkg[j].Ppkg);
       if (CPUType)
 	hwloc_obj_add_info(obj, "CPUType", CPUType);
       if (CPUModel)
@@ -682,7 +684,7 @@ hwloc_look_kstat(struct hwloc_topology *topology)
     unsigned j,k;
     hwloc_debug("%d Cores\n", Lcore_num);
     for (j = 0; j < Lcore_num; j++) {
-      obj = hwloc_alloc_setup_object(HWLOC_OBJ_CORE, Lcore[j].Pcore);
+      obj = hwloc_alloc_setup_object(topology, HWLOC_OBJ_CORE, Lcore[j].Pcore);
       obj->cpuset = hwloc_bitmap_alloc();
       for(k=0; k<Pproc_max; k++)
 	if (Pproc[k].Lcore == j)
@@ -698,7 +700,7 @@ hwloc_look_kstat(struct hwloc_topology *topology)
     unsigned j,k;
     hwloc_debug("%d PUs\n", Lproc_num);
     for (j = 0; j < Lproc_num; j++) {
-      obj = hwloc_alloc_setup_object(HWLOC_OBJ_PU, Lproc[j].Pproc);
+      obj = hwloc_alloc_setup_object(topology, HWLOC_OBJ_PU, Lproc[j].Pproc);
       obj->cpuset = hwloc_bitmap_alloc();
       for(k=0; k<Pproc_max; k++)
 	if (Pproc[k].Lproc == j)

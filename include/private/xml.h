@@ -28,6 +28,13 @@ typedef struct hwloc__xml_import_state_s {
   char data[32];
 } * hwloc__xml_import_state_t;
 
+struct hwloc__xml_imported_v1distances_s {
+  unsigned long kind;
+  unsigned nbobjs;
+  float *floats;
+  struct hwloc__xml_imported_v1distances_s *prev, *next;
+};
+
 HWLOC_DECLSPEC int hwloc__xml_import_diff(hwloc__xml_import_state_t state, hwloc_topology_diff_t *firstdiffp);
 
 struct hwloc_xml_backend_data_s {
@@ -43,12 +50,9 @@ struct hwloc_xml_backend_data_s {
   void (*close_content)(struct hwloc__xml_import_state_s * state);
   char * msgprefix;
   void *data; /* libxml2 doc, or nolibxml buffer */
-  int nbnumanodes;
-  struct hwloc_xml_imported_distances_s {
-    hwloc_obj_t root;
-    struct hwloc_distances_s distances;
-    struct hwloc_xml_imported_distances_s *prev, *next;
-  } *first_distances, *last_distances;
+  unsigned nbnumanodes;
+  hwloc_obj_t first_numanode, last_numanode; /* temporary cousin-list for handling v1distances */
+  struct hwloc__xml_imported_v1distances_s *first_v1dist, *last_v1dist;
 };
 
 /**************
@@ -69,7 +73,7 @@ typedef struct hwloc__xml_export_state_s {
   char data[40];
 } * hwloc__xml_export_state_t;
 
-HWLOC_DECLSPEC void hwloc__xml_export_object (hwloc__xml_export_state_t state, struct hwloc_topology *topology, struct hwloc_obj *obj);
+HWLOC_DECLSPEC void hwloc__xml_export_topology(hwloc__xml_export_state_t parentstate, hwloc_topology_t topology, unsigned long flags);
 
 HWLOC_DECLSPEC void hwloc__xml_export_diff(hwloc__xml_export_state_t parentstate, hwloc_topology_diff_t diff);
 
@@ -79,8 +83,8 @@ HWLOC_DECLSPEC void hwloc__xml_export_diff(hwloc__xml_export_state_t parentstate
 
 struct hwloc_xml_callbacks {
   int (*backend_init)(struct hwloc_xml_backend_data_s *bdata, const char *xmlpath, const char *xmlbuffer, int xmlbuflen);
-  int (*export_file)(struct hwloc_topology *topology, const char *filename);
-  int (*export_buffer)(struct hwloc_topology *topology, char **xmlbuffer, int *buflen);
+  int (*export_file)(struct hwloc_topology *topology, const char *filename, unsigned long flags);
+  int (*export_buffer)(struct hwloc_topology *topology, char **xmlbuffer, int *buflen, unsigned long flags);
   void (*free_buffer)(void *xmlbuffer);
   int (*import_diff)(struct hwloc__xml_import_state_s *state, const char *xmlpath, const char *xmlbuffer, int xmlbuflen, hwloc_topology_diff_t *diff, char **refnamep);
   int (*export_diff_file)(union hwloc_topology_diff_u *diff, const char *refname, const char *filename);

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2013-2015 Inria.  All rights reserved.
+ * Copyright © 2013-2016 Inria.  All rights reserved.
  * See COPYING in top-level directory.
  */
 
@@ -36,18 +36,20 @@ hwloc_look_bgq(struct hwloc_backend *backend)
   /* mark the 17th core (OS-reserved) as disallowed */
   hwloc_bitmap_clr_range(topology->levels[0][0]->allowed_cpuset, (HWLOC_BGQ_CORES-1)*4, HWLOC_BGQ_CORES*4-1);
 
-  env = getenv("BG_THREADMODEL");
-  if (!env || atoi(env) != 2) {
-    /* process cannot use cores/threads outside of its Kernel_ThreadMask() */
-    uint64_t bgmask = Kernel_ThreadMask(Kernel_MyTcoord());
-    /* the mask is reversed, manually reverse it */
-    for(i=0; i<64; i++)
-      if (((bgmask >> i) & 1) == 0)
-	hwloc_bitmap_clr(topology->levels[0][0]->allowed_cpuset, 63-i);
+  if (topology->is_thissystem) {
+    env = getenv("BG_THREADMODEL");
+    if (!env || atoi(env) != 2) {
+      /* process cannot use cores/threads outside of its Kernel_ThreadMask() */
+      uint64_t bgmask = Kernel_ThreadMask(Kernel_MyTcoord());
+      /* the mask is reversed, manually reverse it */
+	for(i=0; i<64; i++)
+	if (((bgmask >> i) & 1) == 0)
+	  hwloc_bitmap_clr(topology->levels[0][0]->allowed_cpuset, 63-i);
+    }
   }
 
   /* a single memory bank */
-  obj = hwloc_alloc_setup_object(HWLOC_OBJ_NUMANODE, 0);
+  obj = hwloc_alloc_setup_object(topology, HWLOC_OBJ_NUMANODE, 0);
   set = hwloc_bitmap_alloc();
   hwloc_bitmap_set_range(set, 0, HWLOC_BGQ_CORES*4-1);
   obj->cpuset = set;
@@ -62,7 +64,7 @@ hwloc_look_bgq(struct hwloc_backend *backend)
 
   /* shared L2 */
   if (hwloc_filter_check_keep_object_type(topology, HWLOC_OBJ_L2CACHE)) {
-    obj = hwloc_alloc_setup_object(HWLOC_OBJ_L2CACHE, -1);
+    obj = hwloc_alloc_setup_object(topology, HWLOC_OBJ_L2CACHE, -1);
     obj->cpuset = hwloc_bitmap_dup(set);
     obj->attr->cache.type = HWLOC_OBJ_CACHE_UNIFIED;
     obj->attr->cache.depth = 2;
@@ -74,7 +76,7 @@ hwloc_look_bgq(struct hwloc_backend *backend)
 
   /* package */
   if (hwloc_filter_check_keep_object_type(topology, HWLOC_OBJ_PACKAGE)) {
-    obj = hwloc_alloc_setup_object(HWLOC_OBJ_PACKAGE, 0);
+    obj = hwloc_alloc_setup_object(topology, HWLOC_OBJ_PACKAGE, 0);
     obj->cpuset = set;
     hwloc_obj_add_info(obj, "CPUModel", "IBM PowerPC A2");
     hwloc_insert_object_by_cpuset(topology, obj);
@@ -88,7 +90,7 @@ hwloc_look_bgq(struct hwloc_backend *backend)
 
     /* L1d */
     if (hwloc_filter_check_keep_object_type(topology, HWLOC_OBJ_L1CACHE)) {
-      obj = hwloc_alloc_setup_object(HWLOC_OBJ_L1CACHE, -1);
+      obj = hwloc_alloc_setup_object(topology, HWLOC_OBJ_L1CACHE, -1);
       obj->cpuset = hwloc_bitmap_dup(set);
       obj->attr->cache.type = HWLOC_OBJ_CACHE_DATA;
       obj->attr->cache.depth = 1;
@@ -99,7 +101,7 @@ hwloc_look_bgq(struct hwloc_backend *backend)
     }
     /* L1i */
     if (hwloc_filter_check_keep_object_type(topology, HWLOC_OBJ_L1ICACHE)) {
-      obj = hwloc_alloc_setup_object(HWLOC_OBJ_L1ICACHE, -1);
+      obj = hwloc_alloc_setup_object(topology, HWLOC_OBJ_L1ICACHE, -1);
       obj->cpuset = hwloc_bitmap_dup(set);
       obj->attr->cache.type = HWLOC_OBJ_CACHE_INSTRUCTION;
       obj->attr->cache.depth = 1;
@@ -112,7 +114,7 @@ hwloc_look_bgq(struct hwloc_backend *backend)
 
     /* Core */
     if (hwloc_filter_check_keep_object_type(topology, HWLOC_OBJ_CORE)) {
-      obj = hwloc_alloc_setup_object(HWLOC_OBJ_CORE, i);
+      obj = hwloc_alloc_setup_object(topology, HWLOC_OBJ_CORE, i);
       obj->cpuset = set;
       hwloc_insert_object_by_cpuset(topology, obj);
     } else
@@ -223,17 +225,23 @@ hwloc_bgq_component_instantiate(struct hwloc_disc_component *component,
 {
   struct utsname utsname;
   struct hwloc_backend *backend;
-  const char *env;
+  int forced_nonbgq = 0;
   int err;
 
-  env = getenv("HWLOC_FORCE_BGQ");
-  if (!env || !atoi(env)) {
-    err = uname(&utsname);
-    if (err || strcmp(utsname.sysname, "CNK") || strcmp(utsname.machine, "BGQ")) {
-      fprintf(stderr, "*** Found unexpected uname sysname `%s' machine `%s'\n", utsname.sysname, utsname.machine);
-      fprintf(stderr, "*** The BGQ backend is only enabled on compute nodes by default (sysname=CNK machine=BGQ)\n");
-      fprintf(stderr, "*** Set HWLOC_FORCE_BGQ=1 in the environment to enforce the BGQ backend anyway.\n");
+  err = uname(&utsname);
+  if (err || strcmp(utsname.sysname, "CNK") || strcmp(utsname.machine, "BGQ")) {
+    const char *env = getenv("HWLOC_FORCE_BGQ");
+    if (!env || !atoi(env)) {
+      fprintf(stderr, "*** Found unexpected uname sysname `%s' machine `%s'.\n", utsname.sysname, utsname.machine);
+      fprintf(stderr, "*** The BlueGene/Q backend (bgq) is only enabled by default on compute nodes\n"
+		      "*** (where uname returns sysname=CNK and machine=BGQ).\n"
+		      "*** If you know you *really* want to run the bgq backend on this non-compute node,\n"
+		      "*** set HWLOC_FORCE_BGQ=1 in the environment.\n"
+		      "*** If you just want to discover the native topology of this non-compute node,\n"
+		      "*** do not pass any BlueGene/Q-specific options on the configure command-line.\n");
       return NULL;
+    } else {
+      forced_nonbgq = 1;
     }
   }
 
@@ -241,6 +249,7 @@ hwloc_bgq_component_instantiate(struct hwloc_disc_component *component,
   if (!backend)
     return NULL;
   backend->discover = hwloc_look_bgq;
+  backend->is_thissystem = !forced_nonbgq;
   return backend;
 }
 

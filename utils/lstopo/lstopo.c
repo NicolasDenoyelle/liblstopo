@@ -282,6 +282,8 @@ void usage(const char *name, FILE *where)
   fprintf (where, "  --no-legend           Remove the text legend at the bottom\n");
   fprintf (where, "  --append-legend <s>   Append a new line of text at the bottom of the legend\n");
   fprintf (where, "Miscellaneous options:\n");
+  fprintf (where, "  --export-xml-flags <n>\n"
+		  "                        Set flags during the XML topology export\n");
   fprintf (where, "  --export-synthetic-flags <n>\n"
 		  "                        Set flags during the synthetic topology export\n");
   fprintf (where, "  --ps --top            Display processes within the hierarchy\n");
@@ -489,6 +491,12 @@ main (int argc, char *argv[])
 	loutput.collapse = 0;
       else if (!strcmp (argv[0], "--thissystem"))
 	flags |= HWLOC_TOPOLOGY_FLAG_IS_THISSYSTEM;
+      else if (!strcmp (argv[0], "--flags")) {
+	if (argc < 2)
+	  goto out_usagefailure;
+	flags = strtoul(argv[1], NULL, 0);
+	opt = 1;
+      }
       else if (!strcmp (argv[0], "--restrict")) {
 	if (argc < 2)
 	  goto out_usagefailure;
@@ -499,6 +507,12 @@ main (int argc, char *argv[])
 	if (argc < 2)
 	  goto out_usagefailure;
 	restrict_flags = (unsigned long) strtoull(argv[1], NULL, 0);
+	opt = 1;
+      }
+      else if (!strcmp (argv[0], "--export-xml-flags")) {
+	if (argc < 2)
+	  goto out_usagefailure;
+	loutput.export_xml_flags = (unsigned long) strtoull(argv[1], NULL, 0);
 	opt = 1;
       }
       else if (!strcmp (argv[0], "--export-synthetic-flags")) {
@@ -596,7 +610,11 @@ main (int argc, char *argv[])
       argv += opt+1;
     }
 
-  hwloc_topology_set_flags(topology, flags);
+  err = hwloc_topology_set_flags(topology, flags);
+  if (err < 0) {
+    fprintf(stderr, "Failed to set flags %lx (%s).\n", flags, strerror(errno));
+    goto out_with_topology;
+  }
 
   if (input) {
     err = hwloc_utils_enable_input_format(topology, input, &input_format, loutput.verbose_mode > 1, callname);

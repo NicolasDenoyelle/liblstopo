@@ -1,5 +1,5 @@
 /*
- * Copyright © 2011-2015 Inria.  All rights reserved.
+ * Copyright © 2011-2016 Inria.  All rights reserved.
  * Copyright © 2011 Université Bordeaux.  All rights reserved.
  * See COPYING in top-level directory.
  */
@@ -9,9 +9,32 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include <assert.h>
 
 static hwloc_topology_t topology;
+
+static void print_distances(const struct hwloc_distances_s *distances)
+{
+  unsigned nbobjs = distances->nbobjs;
+  unsigned i, j;
+
+  printf("     ");
+  /* column header */
+  for(j=0; j<nbobjs; j++)
+    printf(" % 5d", (int) distances->objs[j]->os_index);
+  printf("\n");
+
+  /* each line */
+  for(i=0; i<nbobjs; i++) {
+    /* row header */
+    printf("% 5d", (int) distances->objs[i]->os_index);
+    /* each value */
+    for(j=0; j<nbobjs; j++)
+      printf(" % 5d", (int) distances->values[i*nbobjs+j]);
+    printf("\n");
+  }
+}
 
 static void check(unsigned nbnodes, unsigned nbcores, unsigned nbpus)
 {
@@ -42,52 +65,71 @@ static void check(unsigned nbnodes, unsigned nbcores, unsigned nbpus)
 
 static void check_distances(unsigned nbnodes, unsigned nbcores)
 {
-  const struct hwloc_distances_s *distance;
+  struct hwloc_distances_s *distance;
+  unsigned nr;
+  int err;
 
   /* node distance */
-  distance = hwloc_get_whole_distance_matrix_by_type(topology, HWLOC_OBJ_NUMANODE);
+  nr = 1;
+  err = hwloc_distances_get_by_type(topology, HWLOC_OBJ_NUMANODE, &nr, &distance, 0, 0);
+  assert(!err);
   if (nbnodes >= 2) {
+    assert(nr == 1);
     assert(distance);
     assert(distance->nbobjs == nbnodes);
+    print_distances(distance);
+    hwloc_distances_release(topology, distance);
   } else {
-    assert(!distance);
+    assert(nr == 0);
   }
 
   /* core distance */
-  distance = hwloc_get_whole_distance_matrix_by_type(topology, HWLOC_OBJ_CORE);
+  nr = 1;
+  err = hwloc_distances_get_by_type(topology, HWLOC_OBJ_CORE, &nr, &distance, 0, 0);
+  assert(!err);
   if (nbcores >= 2) {
+    assert(nr == 1);
     assert(distance);
     assert(distance->nbobjs == nbcores);
+    print_distances(distance);
+    hwloc_distances_release(topology, distance);
   } else {
-    assert(!distance);
+    assert(nr == 0);
   }
 }
 
 int main(void)
 {
   hwloc_bitmap_t cpuset = hwloc_bitmap_alloc();
-  unsigned node_indexes[3], core_indexes[6];
-  float node_distances[9], core_distances[36];
+  hwloc_obj_t nodes[3], cores[6];
+  uint64_t node_distances[9], core_distances[36];
   hwloc_obj_t obj;
   unsigned i,j;
   int err;
 
-  for(i=0; i<3; i++) {
-    node_indexes[i] = i;
-    for(j=0; j<3; j++)
-      node_distances[i*3+j] = (i == j ? 10.f : 20.f);
-  }
-  for(i=0; i<6; i++) {
-    core_indexes[i] = i;
-    for(j=0; j<6; j++)
-      core_distances[i*6+j] = (i == j ? 4.f : 8.f);
-  }
-
   hwloc_topology_init(&topology);
   hwloc_topology_set_synthetic(topology, "node:3 core:2 pu:4");
-  hwloc_topology_set_distance_matrix(topology, HWLOC_OBJ_NUMANODE, 3, node_indexes, node_distances);
-  hwloc_topology_set_distance_matrix(topology, HWLOC_OBJ_CORE, 6, core_indexes, core_distances);
   hwloc_topology_load(topology);
+
+  for(i=0; i<3; i++) {
+    nodes[i] = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NUMANODE, i);
+    for(j=0; j<3; j++)
+      node_distances[i*3+j] = (i == j ? 10 : 20);
+  }
+  err = hwloc_distances_add(topology, 3, nodes, node_distances,
+			    HWLOC_DISTANCES_KIND_MEANS_LATENCY|HWLOC_DISTANCES_KIND_FROM_USER,
+			    HWLOC_DISTANCES_FLAG_GROUP);
+  assert(!err);
+
+  for(i=0; i<6; i++) {
+    cores[i] = hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, i);
+    for(j=0; j<6; j++)
+      core_distances[i*6+j] = (i == j ? 4 : 8);
+  }
+  err = hwloc_distances_add(topology, 6, cores, core_distances,
+			    HWLOC_DISTANCES_KIND_MEANS_LATENCY|HWLOC_DISTANCES_KIND_FROM_USER,
+			    HWLOC_DISTANCES_FLAG_GROUP);
+  assert(!err);
 
   /* entire topology */
   printf("starting from full topology\n");
@@ -97,7 +139,7 @@ int main(void)
   /* restrict to nothing, impossible */
   printf("restricting to nothing, must fail\n");
   hwloc_bitmap_zero(cpuset);
-  err = hwloc_topology_restrict(topology, cpuset, HWLOC_RESTRICT_FLAG_ADAPT_DISTANCES);
+  err = hwloc_topology_restrict(topology, cpuset, 0);
   assert(err < 0 && errno == EINVAL);
   check(3, 6, 24);
   check_distances(3, 6);
@@ -105,71 +147,62 @@ int main(void)
   /* restrict to everything, will do nothing */
   printf("restricting to everything, does nothing\n");
   hwloc_bitmap_fill(cpuset);
-  err = hwloc_topology_restrict(topology, cpuset, HWLOC_RESTRICT_FLAG_ADAPT_DISTANCES);
+  err = hwloc_topology_restrict(topology, cpuset, 0);
   assert(!err);
   check(3, 6, 24);
   check_distances(3, 6);
 
   /* remove a single pu (second PU of second core of second node) */
-  printf("removing one PU\n");
+  printf("removing second PU of second core of second node\n");
   hwloc_bitmap_fill(cpuset);
   hwloc_bitmap_clr(cpuset, 13);
-  err = hwloc_topology_restrict(topology, cpuset, HWLOC_RESTRICT_FLAG_ADAPT_DISTANCES);
+  err = hwloc_topology_restrict(topology, cpuset, 0);
   assert(!err);
   check(3, 6, 23);
   check_distances(3, 6);
 
   /* remove the entire second core of first node */
-  printf("removing one core\n");
+  printf("removing entire second core of first node\n");
   hwloc_bitmap_fill(cpuset);
   hwloc_bitmap_clr_range(cpuset, 4, 7);
-  err = hwloc_topology_restrict(topology, cpuset, HWLOC_RESTRICT_FLAG_ADAPT_DISTANCES);
+  err = hwloc_topology_restrict(topology, cpuset, 0);
   assert(!err);
   check(3, 5, 19);
   check_distances(3, 5);
 
   /* remove the entire third node */
-  printf("removing one node\n");
+  printf("removing all PUs under third node, but keep that CPU-less node\n");
   hwloc_bitmap_fill(cpuset);
   hwloc_bitmap_clr_range(cpuset, 16, 23);
-  err = hwloc_topology_restrict(topology, cpuset, HWLOC_RESTRICT_FLAG_ADAPT_DISTANCES);
+  err = hwloc_topology_restrict(topology, cpuset, 0);
   assert(!err);
-  check(2, 3, 11);
-  check_distances(2, 3);
+  check(3, 3, 11);
+  check_distances(3, 3);
+
+  /* only keep three PUs (first and last of first core, and last of last core of second node) */
+  printf("restricting to 3 PUs in 2 cores in 2 nodes, and remove the CPU-less node\n");
+  hwloc_bitmap_zero(cpuset);
+  hwloc_bitmap_set(cpuset, 0);
+  hwloc_bitmap_set(cpuset, 3);
+  hwloc_bitmap_set(cpuset, 15);
+  err = hwloc_topology_restrict(topology, cpuset, HWLOC_RESTRICT_FLAG_REMOVE_CPULESS);
+  assert(!err);
+  check(2, 2, 3);
+  check_distances(2, 2);
 
   /* restrict to the third node, impossible */
   printf("restricting to only some already removed node, must fail\n");
   hwloc_bitmap_zero(cpuset);
   hwloc_bitmap_set_range(cpuset, 16, 23);
-  err = hwloc_topology_restrict(topology, cpuset, HWLOC_RESTRICT_FLAG_ADAPT_DISTANCES);
+  err = hwloc_topology_restrict(topology, cpuset, 0);
   assert(err == -1 && errno == EINVAL);
-  check(2, 3, 11);
-  check_distances(2, 3);
-
-  /* only keep three PUs (first and last of first core, and last of last core of second node) */
-  printf("restricting to 3 PUs\n");
-  hwloc_bitmap_zero(cpuset);
-  hwloc_bitmap_set(cpuset, 0);
-  hwloc_bitmap_set(cpuset, 3);
-  hwloc_bitmap_set(cpuset, 15);
-  err = hwloc_topology_restrict(topology, cpuset, 0);
-  assert(!err);
   check(2, 2, 3);
-  check_distances(0, 0);
-
-  /* only keep one PU (last of last core of second node) */
-  printf("restricting to a single PU\n");
-  hwloc_bitmap_zero(cpuset);
-  hwloc_bitmap_set(cpuset, 15);
-  err = hwloc_topology_restrict(topology, cpuset, 0);
-  assert(!err);
-  check(1, 1, 1);
-  check_distances(0, 0);
+  check_distances(2, 2);
 
   hwloc_topology_destroy(topology);
 
   /* check that restricting exactly on a Group object keeps things coherent */
-  printf("restricting to a Misc covering only the of the PU level\n");
+  printf("restricting to a Group covering only the of the PU level\n");
   hwloc_topology_init(&topology);
   hwloc_topology_set_synthetic(topology, "pu:4");
   hwloc_topology_load(topology);
