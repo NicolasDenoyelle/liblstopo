@@ -64,7 +64,8 @@ include_lstopodir=$(includedir)/hwloc
 include_lstopo_HEADERS=lstopo.h $(top_srcdir)/utils/hwloc/misc.h
 include_lstopo_privatedir=$(includedir)/private
 include_lstopo_autogendir=$(includedir)/private/autogen
-nodist_include_lstopo_private_HEADERS=$(top_srcdir)/include/private/misc.h
+PRIVATE=$(top_srcdir)/include/private
+nodist_include_lstopo_private_HEADERS=$(PRIVATE)/*.h 
 nodist_include_lstopo_autogen_HEADERS=$(top_srcdir)/include/private/autogen/config.h
 endif
 
