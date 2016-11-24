@@ -354,6 +354,7 @@ x11_iloop(struct lstopo_output *loutput, int block)
     XEvent e;
     if (!block && !XPending(disp->dpy)){
       topo_cairo_paint(coutput);
+      XSync(disp->dpy, 1);
       return 0;
     }
     if (!XEventsQueued(disp->dpy, QueuedAfterFlush)) {
@@ -369,6 +370,7 @@ x11_iloop(struct lstopo_output *loutput, int block)
       case Expose:
 	if (e.xexpose.count < 1)
 	  topo_cairo_paint(coutput);
+	  XSync(disp->dpy, 1);
 	break;
       case MotionNotify:
 	if (state) {
